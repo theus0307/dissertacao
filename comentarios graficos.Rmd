@@ -1,0 +1,262 @@
+
+---
+title: "comentarios"
+output: html_document
+date: "2023-04-04"
+---
+
+```{r setup, include=FALSE, echo=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, echo = FALSE, warning = FALSE)
+```
+
+```{r, message=FALSE, echo=FALSE, warning=FALSE}
+library(tidyverse)
+theme_set(hrbrthemes::theme_ipsum_es())
+df_treated2 <- read_rds("df_treated2.rds")
+```
+
+## Analisando os Dados
+
+```{r,echo = FALSE, message = FALSE,}
+df_treated2 %>% 
+  ggplot(aes(x =reorder(tema, -table(tema)[tema]))) +
+  geom_bar()+
+  geom_text(aes(label = ..count..), stat = "count",
+            vjust = -.1)+
+  hrbrthemes::theme_ipsum_es()+
+  labs(x = "Tema da Proposição", y = NULL,
+       title = NULL)
+```
+
+No Gráfico 1 vemos a contagem dos temas das proposições legislativas. Observamos os temas mais frequentes tratam é o Social, e Lei e Crime.
+
+```{r,echo = FALSE, message = FALSE,}
+df_treated2 %>% 
+  drop_na(tema) %>% 
+  ggplot(
+    aes(
+      x = reorder(regiao, -table(regiao)[regiao]),
+        fill =tema  
+         )
+    ) +
+  geom_bar(position = "dodge")+
+  hrbrthemes::theme_ipsum_es()+
+  labs(x = "Tema da Proposição", y = NULL,
+       title = NULL)+
+  scale_fill_viridis_d()+
+  theme(legend.position = "bottom")
+```
+
+No gráfico 2 vemos a distribuição dos temas legislativos por região do pais. Chamamos atenção que os temas de Lei e Crime e Social são os mais frequentes de todas as regiões do pais, a exceção do centro-oeste, cujo os temas mais frequente são lei e crime e regulação, a mobilização de temas de regulação podem ser motivados pela concentração de concursados no distrito federal.
+
+```{r, message=FALSE,echo = FALSE, message = FALSE,}
+library(tm)
+
+df_treated2 %>% 
+  select(ementa) %>% 
+  mutate(ementa = str_to_lower(ementa) %>% 
+           abjutils::rm_accent() %>% 
+           tm::removeNumbers() %>% 
+           removePunctuation() %>% 
+           removeWords(stopwords("portuguese"))) %>%
+  separate_rows(ementa,sep = " ") %>% 
+  filter(ementa != "") %>% 
+  DocumentTermMatrix() %>% 
+  as.matrix() %>% 
+  colSums() %>% 
+  sort(decreasing = TRUE) %>% 
+  tibble(palavras = names(.),
+         frequencia = .) %>% 
+  wordcloud2::wordcloud2()
+```
+
+No gráfico 3 construímos uma nuvem de palavras a partir do texto das ementas legislativas, onde tanto o tamanho como também a posição mais ao centro denotam a frequência do termo nas ementa. Chamamos atenção para a palavra mais frequente, "fim", que é presente na maior parte das ementas.
+
+
+```{r message=FALSE, warning=FALSE,echo = FALSE, message = FALSE,}
+df_treated2 %>% 
+  mutate(ementa = str_to_lower(ementa) %>% 
+           abjutils::rm_accent() %>% 
+           tm::removeNumbers() %>% 
+           removePunctuation() %>% 
+           removeWords(stopwords("portuguese"))) %>%
+  separate_rows(ementa,sep = " ") %>% 
+  filter(ementa != "") %>% 
+  select(id, ementa) %>% 
+  #count(ementa, sort = TRUE) %>% 
+  inner_join(lexiconPT::oplexicon_v3.0 %>% 
+               select(term, polarity),
+             by = c("ementa" = "term")) %>% 
+  mutate(polarity = recode(polarity,
+                           "-1" = "negativo",
+                           "0" = "neutro",
+                           "1" = "positivo")) %>% 
+  ggplot(
+    aes(
+      x = polarity
+    )
+  )+
+  geom_bar(aes(y = ((..count..)/sum(..count..))*100 ))+
+  labs( x= "Sentimento", y = "%",
+        title = "Sentimento das Palavras nas Ementas Legislativas")
+```
+
+No gráfico 4 analisamos os sentimentos das ementas legislativas utilizando o OpLexicon v3, que é um léxico de sentimento de palavras em português, tendo sua polaridade revisado por linguistas. Observamos que os termos tendem a apresentar sentimentos neutros a sentimentos a sentimentos positivos a negativos.
+
+```{r,echo = FALSE, message = FALSE,}
+df_treated2 %>% 
+  ggplot(
+    aes( x = reorder(situacao_rec, -table(situacao_rec)[situacao_rec]))
+  )+
+  geom_bar()+
+  geom_text(aes(label = ..count..), stat = "count",
+            vjust = -.1)+
+  labs(x = "Situação da Proposta Legislativa",
+       y= NULL,
+       title = NULL)
+```
+
+Já no Gráfico 5 observamos a distribuição do status das ementas legislativas. Observamos que a maior parte das ementas, 68%, são rejeitadas.
+
+```{r,echo = FALSE, message = FALSE,}
+df_treated2 %>% 
+  select(motivo_rejeicao) %>% 
+  mutate(ementa = str_to_lower(motivo_rejeicao) %>% 
+           abjutils::rm_accent() %>% 
+           tm::removeNumbers() %>% 
+           removePunctuation() %>% 
+           removeWords(stopwords("portuguese"))) %>%
+  separate_rows(motivo_rejeicao,sep = " ") %>% 
+  filter(motivo_rejeicao != "") %>% 
+  DocumentTermMatrix() %>% 
+  as.matrix() %>% 
+  colSums() %>% 
+  sort(decreasing = TRUE) %>% 
+  tibble(palavras = names(.),
+         frequencia = .) %>% 
+  wordcloud2::wordcloud2()
+```
+
+No gráfico 6 apresentamos o wordcloud da justificativa de rejeição das ementas. Chamamos atenção para o termo, lei, art e constituição, já que esses termos aparecem com alta frequência, já que a maior parte da justificativa das ementas se dá por elas serem ilegais, ferindo algum artigo ou a constituição.
+
+
+```{r, message=FALSE}
+df_treated2 %>% 
+  mutate(ementa = str_to_lower(motivo_rejeicao) %>% 
+           abjutils::rm_accent() %>% 
+           tm::removeNumbers() %>% 
+           removePunctuation() %>% 
+           removeWords(stopwords("portuguese"))) %>%
+  separate_rows(motivo_rejeicao,sep = " ") %>% 
+  filter(motivo_rejeicao != "") %>% 
+  select(id, motivo_rejeicao) %>% 
+  #count(ementa, sort = TRUE) %>% 
+  inner_join(lexiconPT::oplexicon_v3.0 %>% 
+               select(term, polarity),
+             by = c("motivo_rejeicao" = "term")) %>% 
+  mutate(polarity = recode(polarity,
+                           "-1" = "negativo",
+                           "0" = "neutro",
+                           "1" = "positivo")) %>% 
+  ggplot(
+    aes(
+      x = polarity
+    )
+  )+
+  geom_bar(aes(y = ((..count..)/sum(..count..))*100 ))+
+  labs( x= "Sentimento", y = "%",
+        title = "Sentimento das Palavras nas Rejeições das Ementas")
+```
+
+No gráfico 7 apresentamos o sentimento da rejeição das propostas legislativas, e os termos utilizados tem em sua maioria sentimentos positivos com cerca de 50% de polaridade neutra dentro dos termos utilizados, já termo positivos apresentam cerca de 30% enquanto termos negativos 20%.
+
+```{r, echo = FALSE, message = FALSE}
+df_treated2 %>% 
+  filter(situacao_rec == "rejeitada") %>% 
+  ggplot(
+    aes( x= reorder(tema, -table(tema)[tema]))
+  )+
+  geom_bar()+
+  geom_text(
+    aes(label = ..count..),
+    stat = "count",
+    vjust = -.1
+  )+
+  labs(
+    x = "Tema",
+    y = NULL,
+    title = NULL
+  )
+```
+
+no Gráfico 8 observamos a frequencia de rejeição dos projetos por tema do projeto. Observamos que os temas mais frequentes são também os temas mais rejeitados, entretanto chamamos atenção para o projeto xx que fere a legislação
+
+```{r, warning=FALSE, echo = FALSE, message = FALSE,}
+df_treated2 %>% 
+  group_by(tema) %>% 
+  summarise(n_palavras = mean(n_palavras, na.rm = TRUE)) %>%
+  drop_na() %>% 
+  ggplot(
+    aes(
+      x = reorder(tema, -n_palavras),
+      y = n_palavras
+    )
+  )+
+  geom_col()+
+  labs(x= NULL,
+       title = "Número de Palavras por Tema")
+```
+
+No gráfico 9 apresentamos o número de médio de palavras por tema de proposta legislativa. Aqui propomos o número médio de palavras como um proxy para argumentos utilizados na proposta legislativa, onde temas com maiores médias de palavras apresentam mais argumentos a proposta que temas com menos palavras.
+
+```{r, warning=FALSE}
+df_treated2 %>%
+  group_by(tema) %>% 
+  summarise(n_apoios = mean(n_apoios, na.rm = TRUE)) %>% 
+  drop_na() %>% 
+  ggplot(
+    aes(
+      x = reorder(tema, -n_apoios),
+      y = n_apoios
+    )
+  )+
+  geom_col()+
+  labs(x= NULL,
+       title = "Número de Apoios por Tema")
+```
+
+No gráfico 10 apresentamos a média de apoios por tema de proposta legislativa e observamos que os temas mais apoiados são temas sociais e de tributação.
+
+
+``` {r}
+df_filtered <- df_treated2 %>%
+  filter(gênero %in% c("Masculino", "Feminino"))
+df_filtered %>%
+  ggplot(
+    aes(
+      x="",
+      y="ementa", 
+      fill=gênero,
+    )
+  )+
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start=0)+
+theme_void()
+```
+
+No gráfico 11, em relação ao gênero dos proponentes, nos casos em que existe tal informação (68 observações), é possível observar que existe um maior engajamento de pessoas do gênero masculino.
+
+```  {r}
+df_filtered2 %>%
+  ggplot(
+    aes(
+      x="",
+      y="ementa", 
+      fill=ideia_conflitiva_com_outros_direitos,
+    )
+  )+
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start=0)+
+  theme_void()
+```
+No gráfico 12, é possível observar que das ideias legislativas com informações (63) para a variável ideia_conflitiva_com_outros_direitos, apenas 7 iam contra direitos garantidos, enquanto 56 não violavam direitos, independentemente de terem sido rejeitadas ou aprovadas.  
